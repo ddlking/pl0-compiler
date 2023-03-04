@@ -460,48 +460,34 @@ void proc(unsigned long fsys)//procedure识别在block
 	
 	else
 		error(4);
-		
+	
+	test(lparen, fsys|ident|rparen|comma|semicolon, 40);	//检查左括号缺失 由嵌套if变为多次同级判断if 
 	if(sym == lparen)
-	{
 		getsym();
 		
-		if(sym == ident)
-		{
-			getsym();
-			 
-			while(sym == comma)
-			{
-				getsym();
-				if(sym == ident)
-				{
-					getsym();
-				}
-				else
-					error(36);
-			}
-			
-		}
-		test(ident|rparen, fsys|comma|semicolon, 4); //此处涉及 括号内有内容但开头不对； 括号无内容且少括号
-		while(sym == comma)
-		{
-			getsym();
-			if(sym == ident)
-			{
-				getsym();
-			}
-			else
-				error(36);
-		}
+	test(ident|rparen, fsys|comma|semicolon, 4); //此处涉及 括号内有内容但开头不对； 括号无内容且少括号
 		
-		if(sym == rparen)
+	if(sym == ident)
+		getsym(); 
+	while(sym == comma)
+	{
+		getsym();
+		if(sym == ident)
 		{
 			getsym();
 		}
 		else
-			error(22);
+			error(36);
 	}
 		
-	//else 左括号 
+	if(sym == rparen)
+	{
+		getsym();
+	}
+	else
+		error(22);
+		
+	
 	if(sym == semicolon)
 		getsym();
 	else
@@ -698,25 +684,25 @@ void statement(unsigned long fsys)
 		else
 			error(13);
 		
-		expression(fsys);
+		expression(fsys|endsym);
 	}
 	
 	else if(sym == ifsym)
 	{
 		getsym();
-		condition(fsys|thensym|elsesym);
+		condition(fsys|thensym|elsesym|endsym);
 		
 		if(sym == thensym)
 			getsym();
 		else
 			error(16);
 			
-		statement(fsys);
+		statement(fsys|endsym);
 		
 		if(sym == elsesym)
 		{
 			getsym();
-			statement(fsys);
+			statement(fsys|endsym);
 		}
 		//如果少了else怎么办 
 	}
@@ -724,7 +710,7 @@ void statement(unsigned long fsys)
 	else if(sym == whilesym)
 	{
 		getsym();
-		condition(fsys|dosym);
+		condition(fsys|dosym|endsym);
 		
 		if(sym == dosym)
 			getsym();
@@ -744,37 +730,32 @@ void statement(unsigned long fsys)
 		{
 			//i = position(id); error(15)
 			getsym();
+			
+			test(lparen, fsys|(facbegsys|plus|minus)|rparen|comma|semicolon|endsym, 40); //检查括号左缺失，结构同上 
 			if(sym == lparen)
-			{
 				getsym();
 				
-				if(sym&(facbegsys|plus|minus))
-				{
-					expression(fsys|rparen|plus|minus|comma);
-					while(sym == comma)
-					{
-						getsym();
-						expression(fsys|rparen|plus|minus|comma);//
-					}
-				}
-				test((facbegsys|plus|minus)|rparen, fsys|comma|semicolon, 41); //处理 缺失右符号 错误括号内开头；
-				while(sym == comma)
-				{
-					getsym();
-					expression(fsys|rparen|plus|minus|comma);//
-				}
+			test((facbegsys|plus|minus)|rparen, fsys|comma|semicolon|endsym, 41); //处理 缺失右符号 错误括号内开头；
 				
-				if(sym == rparen)
-				{
-					getsym();
-				}
-				
-				else
-					error(22);
+			if(sym&(facbegsys|plus|minus))
+				expression(fsys|rparen|plus|minus|comma|endsym);
+			while(sym == comma)
+			{
+				getsym();
+				expression(fsys|rparen|plus|minus|comma|endsym);//
 			}
+				
+			if(sym == rparen)
+			{
+				getsym();
+			}
+				
+			else
+				error(22);
+			
 
 			
-			//else 左括号 
+
 		}
 	}
 	
@@ -787,67 +768,59 @@ void statement(unsigned long fsys)
 	else if(sym == readsym)
 	{
 		getsym();
+		
+		test(lparen, fsys|ident|comma|rparen|semicolon|endsym, 40); //检查左括号缺失，结构同上 
 		if(sym == lparen)
+			getsym();
+
+		test(ident, fsys|comma|rparen|semicolon|endsym, 4); //防止奇怪的东西开头
+			
+		if(sym == ident)
+			getsym();
+		while(sym == comma)
 		{
 			getsym();
 			if(sym == ident)
 			{
-				//i = position(id); 
-				
-				getsym();
+				//i = position(id);
+				getsym(); 
 			}
 			else
-			{
-				test(ident, fsys|comma|rparen|semicolon, 4); //防止奇怪的东西开头
-				//error(4) 
-			} 
-			
-			while(sym == comma)
-			{
-				getsym();
-				if(sym == ident)
-				{
-					//i = position(id);
-					getsym(); 
-				}
-				else
-					error(36);
-			}
-			
-			if(sym == rparen)
-			{
-				getsym();
-			}
-			else
-				error(22);
+				error(36);
 		}
-		//else 左括号 
+			
+		if(sym == rparen)
+		{
+			getsym();
+		}
+		else
+			error(22);
+
 		
 	}
 	
-	else if(sym == writesym)
+	else if(sym == writesym) //简单恢复 
 	{
 		getsym();
+		
+		test(lparen, fsys|rparen|(facbegsys|plus|minus)|comma|endsym, 40); //检查左括号缺失，结构同上 
 		if(sym == lparen)
-		{
 			getsym();
 				
-			expression(fsys|rparen|plus|minus|comma);
-			while(sym == comma)
-			{
-				getsym();
-				expression(fsys|rparen|plus|minus|comma);
-			}
-			
-			if(sym == rparen)
-			{
-				getsym();
-			}
-			
-			else
-				error(22);
+		expression(fsys|rparen|plus|minus|comma|endsym);
+		while(sym == comma)
+		{
+			getsym();
+			expression(fsys|rparen|plus|minus|comma|endsym);
 		}
-		//else 左括号 
+			
+		if(sym == rparen)
+		{
+			getsym();
+		}
+		else
+			error(22);
+
 	}
 	
 	else if(sym == endsym)
