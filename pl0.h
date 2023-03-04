@@ -55,7 +55,7 @@ char* err_msg[] =
 /* 1 */ "Found '=' when expecting ':='.",
 /* 2 */ "There must be a number to follow ':='.",
 /* 3 */ "There must be an '=' to follow the identifier.",
-/* 4 */ "There must be an identifier to follow 'const', 'var', 'program', 'read' or 'procedure'.",
+/* 4 */ "There must be an identifier to follow 'const', 'var', 'program', 'read', 'procedure' or unexpected ','.",
 /* 5 */ "Missing ',' or ';'.",
 /* 6 */ "Incorrect procedure name.",
 /* 7 */ "Statement expected.",
@@ -91,7 +91,9 @@ char* err_msg[] =
 /* 37 */ "Unexpected ',' or missing expression to follow ','." ,
 /* 38 */ "Found number when expecting identifier.", //主要表达怎么处理多的不是ident内容
 /* 39 */ "Missing statement part.",
-/* 40 */ "Missing '('."
+/* 40 */ "Missing '('.",
+/* 41 */ "There must be an expression to follow 'call', 'write' or unexpected ','." ,
+/* 42 */ "The symbol can not be as the beginning of an statement." //主要处理 ；开头和其余奇怪问题 
 };
 
 

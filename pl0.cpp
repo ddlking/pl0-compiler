@@ -271,10 +271,10 @@ void test(unsigned long s1, unsigned long s2, long n)
 }
 
 
-//void enter(enum object k) //登陆符号表 
+//void enter(enum object k) //登陆符号表
 
 
-//long position(char* id) //查询符号表 
+//long position(char* id) //查询符号表
 
 
 void program(unsigned long fsys);
@@ -464,11 +464,11 @@ void proc(unsigned long fsys)//procedure识别在block
 	if(sym == lparen)
 	{
 		getsym();
-			
+		
 		if(sym == ident)
 		{
 			getsym();
-			
+			 
 			while(sym == comma)
 			{
 				getsym();
@@ -479,8 +479,20 @@ void proc(unsigned long fsys)//procedure识别在block
 				else
 					error(36);
 			}
-		}
 			
+		}
+		test(ident|rparen, fsys|comma|semicolon, 4); //此处涉及 括号内有内容但开头不对； 括号无内容且少括号
+		while(sym == comma)
+		{
+			getsym();
+			if(sym == ident)
+			{
+				getsym();
+			}
+			else
+				error(36);
+		}
+		
 		if(sym == rparen)
 		{
 			getsym();
@@ -509,6 +521,7 @@ void proc(unsigned long fsys)//procedure识别在block
 		else
 			error(33);
 	}
+	//少了分号怎么办 
 	
 	lev++;
 }
@@ -522,6 +535,9 @@ void body(unsigned long fsys)//begin判断在block和statement中
 		
 		return;
 	}
+	
+	//test(statbegsys|endsym, fsys|semicolon, 42); //主要处理分号开头
+	
 	
 	statement(fsys|semicolon|endsym);
 	
@@ -702,6 +718,7 @@ void statement(unsigned long fsys)
 			getsym();
 			statement(fsys);
 		}
+		//如果少了else怎么办 
 	}
 	
 	else if(sym == whilesym)
@@ -739,8 +756,13 @@ void statement(unsigned long fsys)
 						getsym();
 						expression(fsys|rparen|plus|minus|comma);//
 					}
-				} 
-				
+				}
+				test((facbegsys|plus|minus)|rparen, fsys|comma|semicolon, 41); //处理 缺失右符号 错误括号内开头；
+				while(sym == comma)
+				{
+					getsym();
+					expression(fsys|rparen|plus|minus|comma);//
+				}
 				
 				if(sym == rparen)
 				{
@@ -775,7 +797,10 @@ void statement(unsigned long fsys)
 				getsym();
 			}
 			else
-				error(4);
+			{
+				test(ident, fsys|comma|rparen|semicolon, 4); //防止奇怪的东西开头
+				//error(4) 
+			} 
 			
 			while(sym == comma)
 			{
@@ -831,7 +856,7 @@ void statement(unsigned long fsys)
 		error(35);
 		column += 3;
 		getsym();
-	}
+	} 
 	
 	//else
 } 
