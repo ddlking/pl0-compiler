@@ -46,7 +46,8 @@
 #define procsym 0x20000000
 #define elsesym 0x40000000
 #define programsym 0x80000000
-#define writesym 0x100000000
+#define writesym 0x100000000 /* writesym超过long范围，需要long long型 */ 
+
 
 
 char* err_msg[] =
@@ -86,14 +87,17 @@ char* err_msg[] =
 /* 32 */ "There are too many levels.",
 /* 33 */ "Missing 'begin'.",
 /* 34 */ "Extra ending.",
-/* 35 */ "Unexpected ';'." ,
+/* 35 */ "Unexpected ';'.",
 /* 36 */ "Unexpected ',' or missing identifier to follow ','." ,
 /* 37 */ "Unexpected ',' or missing expression to follow ','." ,
 /* 38 */ "Found number when expecting identifier.", //主要表达怎么处理多的不是ident内容
 /* 39 */ "Missing statement part.",
 /* 40 */ "Missing '('.",
 /* 41 */ "There must be an expression to follow 'call', 'write' or unexpected ','." ,
-/* 42 */ "The symbol can not be as the beginning of an statement." //主要处理 ；开头和其余奇怪问题 
+/* 42 */ "The symbol can not be as the beginning of an statement.", //主要处理 ；开头和其余奇怪问题 
+/* 43 */ "Missing 'procedure'.",
+/* 44 */ "Unexpected constant description follows variable description.",
+/* 45 */ "Unexpected constant description or variable description."
 };
 
 

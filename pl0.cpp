@@ -258,7 +258,7 @@ void getsym()
 /* 参数：s1:当语法分析进入或退出某一语法单元时当前单词符合应属于的集合 */
 /* s2:在某一出错状态下，可恢复语法分析正常工作的补充单词集合 */
 /* n:出错信息编号，当当前符号不属于合法的 s1 集合时发出的出错信息 */
-void test(unsigned long s1, unsigned long s2, long n)
+void test(unsigned long long s1, unsigned long long s2, long n)
 {
 	if(!(sym & s1))
 	{
@@ -277,21 +277,21 @@ void test(unsigned long s1, unsigned long s2, long n)
 //long position(char* id) //查询符号表
 
 
-void program(unsigned long fsys);
-void block(unsigned long fsys);
+void program(unsigned long long fsys);
+void block(unsigned long long fsys);
 void constdeclaration();
 void vardeclaration();
-void proc(unsigned long fsys);
-void body(unsigned long fsys);
-void statement(unsigned long fsys);
-void condition(unsigned long fsys);
-void expression(unsigned long fsys);
-void term(unsigned long fsys);
-void factor(unsigned long fsys);
+void proc(unsigned long long fsys);
+void body(unsigned long long fsys);
+void statement(unsigned long long fsys);
+void condition(unsigned long long fsys);
+void expression(unsigned long long fsys);
+void term(unsigned long long fsys);
+void factor(unsigned long long fsys);
 
 
 
-void program(unsigned long fsys) //简单报错，入参仅传给block用 
+void program(unsigned long long fsys) //简单报错，入参仅传给block用 
 {
 	getsym();
 	if(sym == programsym)
@@ -318,7 +318,7 @@ void program(unsigned long fsys) //简单报错，入参仅传给block用
 }
 
 
-void block(unsigned long fsys)
+void block(unsigned long long fsys)
 {
 	if(lev > levmax)
 		error(32);
@@ -329,10 +329,33 @@ void block(unsigned long fsys)
 		constdeclaration();
 	}
 	
+	while(sym == constsym)//出错处理 
+	{
+		error(45);
+		getsym();
+		constdeclaration();
+	}
+	
 	if(sym == varsym)
 	{
 		getsym();
 		vardeclaration();
+	}
+	
+	while(sym&(constsym|varsym))//出错处理 
+	{
+		if(sym == constsym)
+		{
+			error(44);
+			getsym();
+			constdeclaration();
+		}
+		else if(sym == varsym)
+		{
+			error(45);
+			getsym();
+			vardeclaration();			
+		}
 	}
 	
 	if(sym == procsym)
@@ -340,7 +363,23 @@ void block(unsigned long fsys)
 		getsym();
 		proc(fsys);
 	}
-	//没考虑多个和错序问题 堆叠问题
+	
+	while(sym&(constsym|varsym))//出错处理 
+	{
+		if(sym == constsym)
+		{
+			error(45);
+			getsym();
+			constdeclaration();
+		}
+		else if(sym == varsym)
+		{
+			error(45);
+			getsym();
+			vardeclaration();			
+		}
+	}
+
 	if(sym == beginsym)
 	{
 		getsym();
@@ -450,7 +489,7 @@ void vardeclaration()//简单恢复，var识别在block
 }
 
 
-void proc(unsigned long fsys)//procedure识别在block 
+void proc(unsigned long long fsys)//procedure识别在block 
 {
 	if(sym == ident)
 	{
@@ -495,6 +534,8 @@ void proc(unsigned long fsys)//procedure识别在block
 	
 	block(fsys|semicolon);
 	
+	test(semicolon|beginsym, fsys|procsym|statbegsys|endsym, 10); //只做少一或两部分的假设，别太荒谬
+	
 	while(sym == semicolon)
 	{
 		getsym();
@@ -505,14 +546,14 @@ void proc(unsigned long fsys)//procedure识别在block
 			proc(fsys);
 		}
 		else
-			error(33);
+			error(43);
 	}
-	//少了分号怎么办 
 	
+	//不用getsym()，begin在block中判断 
 	lev++;
 }
 
-void body(unsigned long fsys)//begin判断在block和statement中 
+void body(unsigned long long fsys)//begin判断在block和statement中 
 {
 	if(sym == endsym)//缺少statement部分 
 	{
@@ -522,10 +563,13 @@ void body(unsigned long fsys)//begin判断在block和statement中
 		return;
 	}
 	
-	//test(statbegsys|endsym, fsys|semicolon, 42); //主要处理分号开头
-	
+
+	test(ident|statbegsys|endsym, fsys|semicolon, 42); //主要处理分号开头
+	if(sym == semicolon)
+		getsym();
 	
 	statement(fsys|semicolon|endsym);
+	
 	
 	if(sym == endsym)
 	{
@@ -533,7 +577,7 @@ void body(unsigned long fsys)//begin判断在block和statement中
 	}
 	 
 
-	else
+	else //要么有； 要么有end 
 	{
 		if(sym == semicolon)
 		{
@@ -552,7 +596,7 @@ void body(unsigned long fsys)//begin判断在block和statement中
 }
 
 
-void expression(unsigned long fsys)
+void expression(unsigned long long fsys)
 {
 	unsigned long addop;
 	
@@ -579,7 +623,7 @@ void expression(unsigned long fsys)
 }
 
 
-void factor(unsigned long fsys)
+void factor(unsigned long long fsys)
 {
 	long i;
 	
@@ -619,7 +663,7 @@ void factor(unsigned long fsys)
 }
 
 
-void term(unsigned long fsys)
+void term(unsigned long long fsys)
 {
 	unsigned long mulop;
 	
@@ -635,7 +679,7 @@ void term(unsigned long fsys)
 }
 
 
-void condition(unsigned long fsys)
+void condition(unsigned long long fsys)
 {
 	unsigned long relop;
 	
@@ -669,7 +713,7 @@ void condition(unsigned long fsys)
 }
 
 
-void statement(unsigned long fsys)
+void statement(unsigned long long fsys)
 {
 	long i;
 	
