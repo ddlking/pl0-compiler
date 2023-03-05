@@ -271,12 +271,18 @@ void test(unsigned long long s1, unsigned long long s2, long n)
 }
 
 
-//void enter(enum object k) //登陆符号表
+/*登录查询符号表*/
+void enter(enum symtype k, char* sym_name); //登陆符号表
+long position(char* sym_name); //查询符号表
 
 
-//long position(char* id) //查询符号表
+/*中间代码生成及翻译*/
+long findbase(long bp, long l); //静态链查询基地址
+void gen(enum com x, long y, long z);
+void interpret();
 
 
+/* 递归下降语法分析过程 */
 void program(unsigned long long fsys);
 void block(unsigned long long fsys);
 void constdeclaration();
@@ -288,7 +294,6 @@ void condition(unsigned long long fsys);
 void expression(unsigned long long fsys);
 void term(unsigned long long fsys);
 void factor(unsigned long long fsys);
-
 
 
 void program(unsigned long long fsys) //简单报错，入参仅传给block用 
@@ -552,6 +557,7 @@ void proc(unsigned long long fsys)//procedure识别在block
 	//不用getsym()，begin在block中判断 
 	lev++;
 }
+
 
 void body(unsigned long long fsys)//begin判断在block和statement中 
 {
@@ -879,6 +885,236 @@ void statement(unsigned long long fsys)
 } 
 
 
+
+void enter(enum symtype k, char* sym_name)
+{
+	long id = position(sym_name);
+	if (id == -1)
+	{
+		tx++;
+		id = tx;
+	}
+
+	table[id].kind = k;
+	switch (k)
+	{
+		case con:
+			table[id].val = num;
+		break;
+
+		case var:
+
+		break;
+
+		case pro:
+
+		break;
+	}
+}
+
+
+long position(char* sym_name)//有则返回对应位置，无则返回-1
+{
+	return 0;
+}
+
+
+void gen(enum com x, long y, long z)
+{
+	if (cx > cxmax)
+	{
+		cout << "program is too long.\n";
+		exit(1);
+	}
+	code[cx].f = x;
+	code[cx].l = y;
+	code[cx].a = z;
+
+	cx++;
+}
+
+
+/*
+* 活动记录设置：
+* 临时单元
+* 内情向量
+* 简单变量
+* 形参单元
+* 静态链
+* 返回地址
+* 动态链
+*/
+
+/* 通过静态链求出数据区基地址的函数 base */
+/* 参数说明：l:要求的数据区所在层与当前层的层差 */
+/* 返回值：要求的数据区基址 */
+long findbase(long bp, long l)
+{
+	long bp1;
+	bp1 = bp;
+	while (l > 0)
+	{
+		bp1 = datastk[bp1+2];
+		l--;
+	}
+	return bp1;
+}
+
+
+void interpret()
+{
+	//TODO
+	cout << "PL/0 start!\n";
+	pc = 0; bp = 1; sp = 0;
+	do
+	{
+		index = code[pc];
+		pc++;
+		switch (index.f)
+		{
+			case lit: // 将常量放入栈顶
+				sp++;
+				datastk[sp] = index.a;
+				break;
+
+			case opr:
+				switch (index.a)
+				{
+					case 0: // return 
+						pc = bp - 1; 
+						pc = datastk[pc + 3];
+						bp = datastk[pc + 2];
+						break;
+
+					case 1:  // 取反  
+						datastk[sp] = - datastk[sp];
+						break;
+
+					case 2:  // 加法  
+						sp = sp - 1; 
+						datastk[sp] = datastk[sp] + datastk[sp + 1];
+						break;
+
+					case 3:  // 减法（次栈顶减去栈顶）
+						sp = sp - 1; 
+						datastk[sp] = datastk[sp] - datastk[sp + 1];
+						break;
+
+					case 4:  // 乘法  
+						sp = sp - 1; 
+						datastk[sp] = datastk[sp] * datastk[sp + 1];
+						break;
+
+					case 5:  // 除法（次栈顶除以栈顶）
+						sp = sp - 1; 
+						datastk[sp] = datastk[sp] / datastk[sp + 1];
+						break;
+
+					case 6:  // odd  
+						datastk[sp] = datastk[sp] % 2;
+						break;
+
+					case 7: // mod
+						sp = sp - 1;
+						datastk[sp] = (datastk[sp] % datastk[sp + 1]);
+						break;
+
+					case 8:  // == 
+						sp = sp - 1; 
+						datastk[sp] = (datastk[sp] == datastk[sp + 1]);
+						break;
+
+					case 9:  // != 
+						sp = sp - 1; 
+						datastk[sp] = (datastk[sp] != datastk[sp + 1]);
+						break;
+
+					case 10: // <  
+						sp = sp - 1; 
+						datastk[sp] = (datastk[sp] < datastk[sp + 1]);
+						break;
+
+					case 11: // >=  
+						sp = sp - 1; 
+						datastk[sp] = (datastk[sp] >= datastk[sp + 1]);
+						break;
+
+					case 12: // > 
+						sp = sp - 1; 
+						datastk[sp] = (datastk[sp] > datastk[sp + 1]);
+						break;
+
+					case 13: // <= 
+						sp = sp - 1; 
+						datastk[sp] = (datastk[sp] <= datastk[sp + 1]);
+						break;
+
+					case 14: //输出
+						sp = sp - 1;
+						cout << datastk[sp + 1];
+						break;
+
+					case 15: // \n
+						cout << "\n";
+						break;
+
+					case 16: //输入
+						sp = sp + 1;
+						cin >> datastk[sp - 1];
+						break;
+						
+				}
+				break;
+
+			case lod: //将变量的值放到栈顶
+				sp = sp + 1; 
+				datastk[sp] = datastk[findbase(bp, index.l) + index.a];
+				break;
+
+			case sto: //将栈顶的值弹出送到变量中 
+				sp = sp - 1;
+				datastk[findbase(bp, index.l) + index.a] = datastk[sp + 1]; 
+				printf("%10d\n", datastk[sp + 1]);
+				break;
+
+			case cal:  //调用过程 ?
+				datastk[sp + 1] = findbase(bp, index.l); 
+				datastk[sp + 2] = bp;
+				datastk[sp + 3] = pc;
+				bp = sp + 1;
+				pc = index.a;
+				break;
+
+			case Int:  //开配内存空间  
+				sp = sp + index.a;
+				break;
+
+			case jmp:  //无条件跳转
+				pc = index.a;
+				break;
+
+			case jpc:  //条件跳转（为假跳转）并弹出栈顶
+				sp = sp - 1;
+				if (datastk[sp + 1] == 0)
+				{
+					pc = index.a;
+				}
+				break;
+
+			case red:
+				break;
+
+			case wrt:
+				break;
+		}
+	}
+	while (pc <= cx); // ?
+
+	cout << "PL/0 complete!\n";
+}
+
+
+
 int main()
 {
 	for(long i = 0; i < 256; i++)
@@ -897,7 +1133,8 @@ int main()
 	statbegsys = beginsym|callsym|ifsym|whilesym|readsym|writesym;
 	facbegsys = ident|number|lparen;
 	lopbegsys = eql|neq|lss|leq|gtr|geq;
-	
+
+
 	cout<<"Please input source program file name:";
 	cin>>infilename;
 	cout<<'\n';
