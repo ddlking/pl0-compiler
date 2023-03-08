@@ -135,18 +135,21 @@ char codename[10][3 + 1] = {
 #define dxmax 5000 // 层次表最大容量
 enum symtype
 {
-	con, var, pro
+	con, var, pro, cav;//cav = con and var
 };
 
-typedef struct//静态表，无哈希
+struct t//静态表，无哈希
 {
 	symtype kind;
-	string name;
+	char name[al+1];
 	long val;
+	long level;
 	long addr;
 	long size;
 	long previous;
-}table[txmax + 1];
+};
+
+t table[txmax + 1];
 
 long display[dxmax + 1];//显示层次关系表
 long tx = 0;//符号表栈顶寄存器

@@ -152,8 +152,11 @@ void getsym()
 				getch(); //去除小数部分 
 		}
 		
-		if(l > nmax)
+		if (l > nmax)
+		{
 			error(31);
+			num = 0;
+		}
 			
 		rowtemp = row;
 		coltemp = column;
@@ -273,10 +276,10 @@ void test(unsigned long long s1, unsigned long long s2, long n)
 
 /*登录查询符号表*/
 void enter(enum symtype k, char* sym_name); //登陆符号表
-long position(char* sym_name); //查询符号表
+long position(enum symtype k, char* sym_name); //查询符号表
 
 
-/*中间代码生成及翻译*/
+/*中间代码产生和翻译*/
 long findbase(long bp, long l); //静态链查询基地址
 void gen(enum com x, long y, long z);
 void interpret();
@@ -296,7 +299,7 @@ void term(unsigned long long fsys);
 void factor(unsigned long long fsys);
 
 
-void program(unsigned long long fsys) //简单报错，入参仅传给block用 
+void program(unsigned long long fsys) //简单报错，入参仅传给block用,program名未处理
 {
 	getsym();
 	if(sym == programsym)
@@ -412,7 +415,7 @@ void constdeclaration()//简单恢复，const识别在block
 			
 			if(sym == number)
 			{
-				//enter(constant);
+				enter(con, id);
 				getsym();
 			}
 			else
@@ -442,7 +445,7 @@ void constdeclaration()//简单恢复，const识别在block
 			
 				if(sym == number)
 				{
-					//enter(constant);
+					enter(con, id);
 					getsym();
 				}
 				else
@@ -468,7 +471,7 @@ void vardeclaration()//简单恢复，var识别在block
 {
 	if(sym == ident)
 	{
-		//enter(variable);
+		enter(var, id);
 		getsym();
 		
 	}
@@ -481,6 +484,7 @@ void vardeclaration()//简单恢复，var识别在block
 		
 		if(sym == ident)
 		{
+			enter(var, id);
 			getsym();
 		}
 		else
@@ -496,14 +500,17 @@ void vardeclaration()//简单恢复，var识别在block
 
 void proc(unsigned long long fsys)//procedure识别在block 
 {
-	if(sym == ident)
+	if(sym == ident) //考虑多重定义问题？
 	{
+		enter(pro, id);
 		getsym();
-		
 	}
 	
 	else
+	{
+		enter(pro, "unknown");//暂时命名为unknown
 		error(4);
+	}
 	
 	test(lparen, fsys|ident|rparen|comma|semicolon, 40);	//检查左括号缺失 由嵌套if变为多次同级判断if 
 	if(sym == lparen)
@@ -511,13 +518,18 @@ void proc(unsigned long long fsys)//procedure识别在block
 		
 	test(ident|rparen, fsys|comma|semicolon, 4); //此处涉及 括号内有内容但开头不对； 括号无内容且少括号
 		
-	if(sym == ident)
-		getsym(); 
+	if (sym == ident)
+	{
+		enter(var, id);
+		getsym();
+	}
 	while(sym == comma)
 	{
 		getsym();
 		if(sym == ident)
 		{
+			// ?如何传参
+			enter(var, id);
 			getsym();
 		}
 		else
@@ -548,7 +560,7 @@ void proc(unsigned long long fsys)//procedure识别在block
 		if(sym == procsym)
 		{
 			getsym();
-			proc(fsys);
+			proc(fsys);//lev++?
 		}
 		else
 			error(43);
@@ -612,6 +624,11 @@ void expression(unsigned long long fsys)
 		getsym();
 		
 		term(fsys|plus|minus);
+		
+		if (sym == minus)
+		{
+			gen(opr, 0, 1);
+		}
 	}
 	
 	else
@@ -625,6 +642,16 @@ void expression(unsigned long long fsys)
 		getsym();
 		
 		term(fsys|plus|minus);
+
+		if (addop == plus)
+		{
+			gen(opr, 0, 2);
+		}
+
+		else if (addop == minus)
+		{
+			gen(opr, 0, 3);
+		}
 	}
 }
 
@@ -638,17 +665,37 @@ void factor(unsigned long long fsys)
 	//while?
 	if(sym == ident)
 	{
-		//i = position(id);
+		i = position(cav, id); //??
+		
+		if (i == -1)
+			error(11);
+		else
+		{
+			if (table[i].kind == con)
+			{
+				gen(lit, 0, table[i].val);
+			}
+
+			else if (table[i].kind == var)
+			{
+				gen(lod, lev - table[i].level, table[i].addr);
+			}
+		}
+
 		getsym();
 	}
 	
 	else if(sym == number)
 	{
+		/* 感觉不用，已经处理过了
 		if(num > amax)
 		{
 			error(31);
 			num = 0;
 		}
+		*/
+		gen(lit, 0, num);
+
 		getsym();
 	}
 	
@@ -681,6 +728,14 @@ void term(unsigned long long fsys)
 		getsym();
 		
 		factor(fsys|times|slash);
+		if (sym == times)
+		{
+			gen(opr, 0, 4);
+		}
+		else if (sym == slash)
+		{
+			gen(opr, 0, 5);
+		}
 	}
 }
 
@@ -694,6 +749,7 @@ void condition(unsigned long long fsys)
 		getsym();
 		expression(fsys);
 		
+		gen(opr, 0, 6);
 	}
 	
 	else
@@ -703,6 +759,7 @@ void condition(unsigned long long fsys)
 		if(!(sym&lopbegsys))//注意！优先级
 		{
 			error(20);
+			relop = eql; //如果缺失默认为==
 			
 			expression(fsys);
 		}
@@ -715,6 +772,33 @@ void condition(unsigned long long fsys)
 			
 			expression(fsys);			
 		}
+		switch (relop)
+		{
+			case eql:
+				gen(opr, 0, 7);
+				break;
+			
+			case neq:
+				gen(opr, 0, 8);
+				break;
+
+			case lss:
+				gen(opr, 0, 9);
+				break;
+
+			case leq:
+				gen(opr, 0, 10);
+				break;
+
+			case gtr:
+				gen(opr, 0, 11);
+				break;
+
+			case geq:
+				gen(opr, 0, 12);
+				break;
+		}
+			
 	}
 }
 
@@ -725,7 +809,9 @@ void statement(unsigned long long fsys)
 	
 	if(sym == ident)
 	{
-		//i = position(id); 
+		i = position(var, id);
+		if (i == -1)
+			error(11);
 		
 		getsym();
 		
@@ -770,7 +856,7 @@ void statement(unsigned long long fsys)
 		statement(fsys);
 	}
 	
-	else if(sym == callsym)
+	else if(sym == callsym)//如何传参？
 	{
 		getsym();
 		
@@ -778,7 +864,13 @@ void statement(unsigned long long fsys)
 			error(14);
 		else
 		{
-			//i = position(id); error(15)
+			i = position(pro, id);
+			if (i == -1)
+				error(11);
+			else
+			{
+				gen(cal, lev - table[i].level, table[i].addr);
+			}
 			getsym();
 			
 			test(lparen, fsys|(facbegsys|plus|minus)|rparen|comma|semicolon|endsym, 40); //检查括号左缺失，结构同上 
@@ -825,14 +917,30 @@ void statement(unsigned long long fsys)
 
 		test(ident, fsys|comma|rparen|semicolon|endsym, 4); //防止奇怪的东西开头
 			
-		if(sym == ident)
+		if (sym == ident)
+		{
+			i = position(con, id);
+			if (i == -1)
+				error(11);
+			else
+			{
+				gen(red, lev - table[i].level, table[i].addr);
+			}
 			getsym();
+		}
+		
 		while(sym == comma)
 		{
 			getsym();
 			if(sym == ident)
 			{
-				//i = position(id);
+				i = position(con, id);
+				if (i == -1)
+					error(11);
+				else
+				{
+					gen(red, lev - table[i].level, table[i].addr);
+				}
 				getsym(); 
 			}
 			else
@@ -856,7 +964,7 @@ void statement(unsigned long long fsys)
 		test(lparen, fsys|rparen|(facbegsys|plus|minus)|comma|endsym, 40); //检查左括号缺失，结构同上 
 		if(sym == lparen)
 			getsym();
-				
+		
 		expression(fsys|rparen|plus|minus|comma|endsym);
 		while(sym == comma)
 		{
@@ -888,7 +996,7 @@ void statement(unsigned long long fsys)
 
 void enter(enum symtype k, char* sym_name)
 {
-	long id = position(sym_name);
+	long id = position(k, sym_name);
 	if (id == -1)
 	{
 		tx++;
@@ -896,26 +1004,57 @@ void enter(enum symtype k, char* sym_name)
 	}
 
 	table[id].kind = k;
+	strcpy(table[id].name, sym_name);
 	switch (k)
 	{
 		case con:
+			//if() getsym已做超出检查
 			table[id].val = num;
+			table[id].level = lev;
 		break;
 
 		case var:
-
+			table[id].level = lev;
+			table[id].addr = sp;
+			sp++;
 		break;
 
 		case pro:
-
+			table[id].level = lev;
+			table[id].addr = sp;
 		break;
 	}
 }
 
 
-long position(char* sym_name)//有则返回对应位置，无则返回-1
+long position(enum symtype k, char* sym_name)//有则返回对应位置，无则返回-1 保证栈符号表仅出现一次
 {
-	return 0;
+	bool flag = 1; // 1为没找到 0找到
+	long id = display[dx];
+	while (dx && flag) //dx从1开始
+	{
+		id = display[dx];
+		if (k == cav)
+		{
+			while (strcmp(sym_name, table[id].name) != 0 || table[id].kind == pro)
+			{
+				id = table[id].previous;
+			}
+		}
+		else
+		{
+			while (strcmp(sym_name, table[id].name) != 0 || k != table[id].kind)
+			{
+				id = table[id].previous;
+			}
+		}
+		dx--;
+	}
+	if (flag)
+	{
+		return -1;
+	}
+	return id;
 }
 
 
@@ -1014,51 +1153,53 @@ void interpret()
 						datastk[sp] = datastk[sp] % 2;
 						break;
 
+					/*
 					case 7: // mod
 						sp = sp - 1;
 						datastk[sp] = (datastk[sp] % datastk[sp + 1]);
 						break;
+					*/
 
-					case 8:  // == 
+					case 7:  // == 
 						sp = sp - 1; 
 						datastk[sp] = (datastk[sp] == datastk[sp + 1]);
 						break;
 
-					case 9:  // != 
+					case 8:  // != 
 						sp = sp - 1; 
 						datastk[sp] = (datastk[sp] != datastk[sp + 1]);
 						break;
 
-					case 10: // <  
+					case 9: // <  
 						sp = sp - 1; 
 						datastk[sp] = (datastk[sp] < datastk[sp + 1]);
 						break;
 
-					case 11: // >=  
-						sp = sp - 1; 
-						datastk[sp] = (datastk[sp] >= datastk[sp + 1]);
-						break;
-
-					case 12: // > 
-						sp = sp - 1; 
-						datastk[sp] = (datastk[sp] > datastk[sp + 1]);
-						break;
-
-					case 13: // <= 
+					case 10: // <=  
 						sp = sp - 1; 
 						datastk[sp] = (datastk[sp] <= datastk[sp + 1]);
 						break;
 
-					case 14: //输出
+					case 11: // > 
+						sp = sp - 1; 
+						datastk[sp] = (datastk[sp] > datastk[sp + 1]);
+						break;
+
+					case 12: // >= 
+						sp = sp - 1; 
+						datastk[sp] = (datastk[sp] >= datastk[sp + 1]);
+						break;
+
+					case 13: //输出
 						sp = sp - 1;
 						cout << datastk[sp + 1];
 						break;
 
-					case 15: // \n
+					case 14: // \n
 						cout << "\n";
 						break;
 
-					case 16: //输入
+					case 15: //输入
 						sp = sp + 1;
 						cin >> datastk[sp - 1];
 						break;
