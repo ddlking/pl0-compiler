@@ -7,7 +7,7 @@
 
 
 #define norw 15 /* 保留字的数量 */ 
-#define txmax 100 /* 标识符表的长度 */ 
+#define txmax 1000 /* 标识符表的长度 */ 
 #define nmax 14 /* 数字允许的最长位数 */ 
 #define al 10 /* 标识符最大长度 */
 #define amax 2047 /* 寻址空间 */
@@ -96,7 +96,9 @@ char* err_msg[] =
 /* 42 */ "The symbol can not be as the beginning of an statement.", //主要处理 ；开头和其余奇怪问题 
 /* 43 */ "Missing 'procedure'.",
 /* 44 */ "Unexpected constant description follows variable description.",
-/* 45 */ "Unexpected constant description or variable description."
+/* 45 */ "Unexpected constant description or variable description.",
+/* 46 */ "Duplicate definition.",
+/* 47 */ "There are too many symbols."
 };
 
 
@@ -135,7 +137,7 @@ char codename[10][3 + 1] = {
 #define dxmax 5000 // 层次表最大容量
 enum symtype
 {
-	con, var, pro, cav;//cav = con and var
+	con, var, pro, cav//cav = con and var
 };
 //常量永远不变 不可输入，变量仅在运行时才赋值，编译符号表阶段不管
 
@@ -153,9 +155,11 @@ struct t//静态表，无哈希
 t table[txmax + 1];
 
 long display[dxmax + 1];//显示层次关系表
-long tx = 0;//符号表栈顶寄存器
-long sx;//符号表基地址寄存器
+long tx = 0;//符号表栈顶寄存器(但不一定是最新)
+long sx;//符号表基地址寄存器 用于恢复
 long dx;//层次表栈顶寄存器
+long lastx = 0;//previous
+
 
 
 char ch; // 用于词法分析器，存放最近一次从文件中读出的字符

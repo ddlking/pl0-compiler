@@ -251,11 +251,6 @@ void getsym()
 	}
 	 
 }
-/* 词法分析过程 getsym 总结：从源文件中读出若干有效字符，组成一个 token 串，识别它的类型
-为保留字/标识符/数字或是其它符号。如果是保留字，把 sym 置成相应的保留字类型，如果是
-标识符，把 sym 置成 ident 表示是标识符，于此同时，id 变量中存放的即为保留字字符串或标识
-符名字。如果是数字，把 sym 置为 number,同时 num 变量中存放该数字的值。如果是其它的操作符，
-则直接把 sym 置成相应类型。经过本过程后 ch 变量中存放的是下一个即将被识别的字符 */
 
 /* 测试当前单词是否合法过程 */
 /* 参数：s1:当语法分析进入或退出某一语法单元时当前单词符合应属于的集合 */
@@ -276,7 +271,7 @@ void test(unsigned long long s1, unsigned long long s2, long n)
 
 /*登录查询符号表*/
 void enter(enum symtype k, char* sym_name); //登陆符号表
-long position(enum symtype k, char* sym_name); //查询符号表
+long position(enum symtype k, char* sym_name, bool is_same_lev = false); //查询符号表
 
 
 /*中间代码产生和翻译*/
@@ -506,9 +501,19 @@ void vardeclaration()//简单恢复，var识别在block
 
 void proc(unsigned long long fsys)//procedure识别在block 
 {
-	if(sym == ident) //考虑多重定义问题？
+	if(sym == ident) //进程名不允许重复（不包括访问不到的区域）
 	{
-		enter(pro, id);
+		long i;
+		i = position(pro, id);
+		if (i != -1)
+		{
+			error(46);
+			enter(pro, "unknown");
+		}
+		else
+		{
+			enter(pro, id);
+		}
 		getsym();
 	}
 	
@@ -556,6 +561,9 @@ void proc(unsigned long long fsys)//procedure识别在block
 		error(10);
 	
 	block(fsys|semicolon);
+
+	dx--;//删除子符号表
+	tx = sx;
 	
 	test(semicolon|beginsym, fsys|procsym|statbegsys|endsym, 10); //只做少一或两部分的假设，别太荒谬
 	
@@ -566,7 +574,7 @@ void proc(unsigned long long fsys)//procedure识别在block
 		if(sym == procsym)
 		{
 			getsym();
-			proc(fsys);//lev++?
+			proc(fsys);//此时同层不用lev++
 		}
 		else
 			error(43);
@@ -1032,7 +1040,12 @@ void statement(unsigned long long fsys)
 
 void enter(enum symtype k, char* sym_name)
 {
-	long id = position(k, sym_name);
+	if (tx >= txmax)
+	{
+		error(47);
+		return;
+	}
+	long id = position(k, sym_name, true);//同区域不允许重复定义
 	if (id == -1)
 	{
 		tx++;
@@ -1041,50 +1054,87 @@ void enter(enum symtype k, char* sym_name)
 
 	table[id].kind = k;
 	strcpy(table[id].name, sym_name);
+
 	switch (k)
 	{
 		case con:
 			//if() getsym已做超出检查
 			table[id].val = num;
 			table[id].level = lev;
+			table[id].previous = lastx;
+			display[dx] = id;
 		break;
 
 		case var:
 			table[id].level = lev;
 			table[id].addr = sp;
-			sp++;
+			table[id].previous = lastx;
+			display[dx] = id;
 		break;
 
-		case pro:
+		case pro://外层已做同名进程检查
 			table[id].level = lev;
 			table[id].addr = sp;
+			table[id].previous = 0;
+			dx++;
+			display[dx] = id;
+			sx = id;
 		break;
 	}
+
+	lastx = id;
 }
 
 
-long position(enum symtype k, char* sym_name)//有则返回对应位置，无则返回-1 保证栈符号表仅出现一次
+long position(enum symtype k, char* sym_name, bool is_same_lev)//有则返回对应位置，无则返回-1 保证栈符号表仅出现一次
 {
 	bool flag = 1; // 1为没找到 0找到
 	long id = display[dx];
-	while (dx && flag) //dx从1开始
+	if (is_same_lev)
 	{
-		id = display[dx];
 		if (k == cav)
 		{
-			while (strcmp(sym_name, table[id].name) != 0 || table[id].kind == pro)
+			while (strcmp(sym_name, table[id].name) != 0 || table[id].kind == pro || id != 0)
 			{
 				id = table[id].previous;
 			}
 		}
 		else
 		{
-			while (strcmp(sym_name, table[id].name) != 0 || k != table[id].kind)
+			while (strcmp(sym_name, table[id].name) != 0 || k != table[id].kind || id != 0)
 			{
 				id = table[id].previous;
 			}
 		}
-		dx--;
+		if (id != 0)
+			flag = 0;
+	}
+	else
+	{
+		while (dx && flag) //dx从1开始
+		{
+			id = display[dx];
+			if (k == cav)
+			{
+				while (strcmp(sym_name, table[id].name) != 0 || table[id].kind == pro || id != 0)
+				{
+					id = table[id].previous;
+				}
+			}
+			else
+			{
+				while (strcmp(sym_name, table[id].name) != 0 || k != table[id].kind || id != 0)
+				{
+					id = table[id].previous;
+				}
+			}
+			if (id != 0)
+			{
+				flag = 0;
+				break;
+			}
+			dx--;
+		}
 	}
 	if (flag)
 	{
