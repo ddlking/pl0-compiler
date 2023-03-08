@@ -328,6 +328,12 @@ void program(unsigned long long fsys) //¼òµ¥±¨´í£¬Èë²Î½ö´«¸øblockÓÃ,programÃûÎ´´
 
 void block(unsigned long long fsys)
 {
+	long pc0;
+	long sp0;
+	long pc1;
+	long sp1;
+
+
 	if(lev > levmax)
 		error(32);
 	
@@ -821,10 +827,18 @@ void statement(unsigned long long fsys)
 			error(13);
 		
 		expression(fsys|endsym);
+
+		if (i != -1)
+		{
+			gen(sto, lev - table[i].level, table[i].addr);
+		}
 	}
 	
-	else if(sym == ifsym)
+	else if(sym == ifsym) //¿ÉÄÜÌø×ª»áÏà²î1
 	{
+		long pc1;
+		long pc2;
+
 		getsym();
 		condition(fsys|thensym|elsesym|endsym);
 		
@@ -832,21 +846,37 @@ void statement(unsigned long long fsys)
 			getsym();
 		else
 			error(16);
+
+		pc1 = pc;
+		gen(jpc, 0, 0);//ÔİÌî Îª¼ÙÌø×ª
 			
 		statement(fsys|endsym);
+
+		pc2 = pc; 
+		gen(jmp, 0, 0);//ÔİÌî
+
+		code[pc1].a = pc; //»ØÌî£¬Îª¼ÙÔòÖ±½ÓÌø³öthenºóstatement
 		
 		if(sym == elsesym)
 		{
 			getsym();
 			statement(fsys|endsym);
 		}
-		//Èç¹ûÉÙÁËelseÔõÃ´°ì 
+		code[pc2].a = pc; //»ØÌî£¬ÎŞelseµÈÓÚÃ»ÓĞ
+		//´Ë´¦²»×öelseÈ±Ê§µÄ¼ì²é£¬Èç¹ûÈ±Ê§else£¬»áºÏÀí×ªÏòbodyÈ±Ê§·ÖºÅµÄ»Ö¸´£¬±¨´í17
 	}
 	
 	else if(sym == whilesym)
 	{
+		long pc1;
+		long pc2;
+
 		getsym();
+
+		pc1 = pc;
 		condition(fsys|dosym|endsym);
+		pc2 = pc;
+		gen(jpc, 0, 0); //ÔİÌî
 		
 		if(sym == dosym)
 			getsym();
@@ -854,6 +884,10 @@ void statement(unsigned long long fsys)
 			error(18);
 		
 		statement(fsys);
+
+		gen(jmp, 0, pc1);
+		code[pc2].a = pc;//»ØÌî
+		
 	}
 	
 	else if(sym == callsym)//ÈçºÎ´«²Î£¿
@@ -869,7 +903,7 @@ void statement(unsigned long long fsys)
 				error(11);
 			else
 			{
-				gen(cal, lev - table[i].level, table[i].addr);
+				gen(cal, lev - table[i].level, table[i].addr); //»¹²»È·¶¨¸ÃÎ»ÖÃÊÇ·ñÕıÈ·
 			}
 			getsym();
 			
@@ -957,7 +991,7 @@ void statement(unsigned long long fsys)
 		
 	}
 	
-	else if(sym == writesym) //¼òµ¥»Ö¸´ 
+	else if(sym == writesym) //¼òµ¥»Ö¸´ Èç¹û¶Áµ½Ã»ÓĞ¸³ÖµµÄÔõÃ´°ì£¿
 	{
 		getsym();
 		
@@ -966,12 +1000,14 @@ void statement(unsigned long long fsys)
 			getsym();
 		
 		expression(fsys|rparen|plus|minus|comma|endsym);
+		gen(wrt, 0, 0);//Ö±½ÓÊä³öÕ»¶¥
 		while(sym == comma)
 		{
 			getsym();
 			expression(fsys|rparen|plus|minus|comma|endsym);
+			gen(wrt, 0, 0);
 		}
-			
+		gen(opr, 0, 13);
 		if(sym == rparen)
 		{
 			getsym();
@@ -1103,6 +1139,7 @@ long findbase(long bp, long l)
 void interpret()
 {
 	//TODO
+	long temp;
 	cout << "PL/0 start!\n";
 	pc = 0; bp = 1; sp = 0;
 	do
@@ -1153,13 +1190,6 @@ void interpret()
 						datastk[sp] = datastk[sp] % 2;
 						break;
 
-					/*
-					case 7: // mod
-						sp = sp - 1;
-						datastk[sp] = (datastk[sp] % datastk[sp + 1]);
-						break;
-					*/
-
 					case 7:  // == 
 						sp = sp - 1; 
 						datastk[sp] = (datastk[sp] == datastk[sp + 1]);
@@ -1190,20 +1220,9 @@ void interpret()
 						datastk[sp] = (datastk[sp] >= datastk[sp + 1]);
 						break;
 
-					case 13: //Êä³ö
-						sp = sp - 1;
-						cout << datastk[sp + 1];
-						break;
-
-					case 14: // \n
+					case 13: //Êä³ö"\n"
 						cout << "\n";
 						break;
-
-					case 15: //ÊäÈë
-						sp = sp + 1;
-						cin >> datastk[sp - 1];
-						break;
-						
 				}
 				break;
 
@@ -1215,7 +1234,7 @@ void interpret()
 			case sto: //½«Õ»¶¥µÄÖµµ¯³öËÍµ½±äÁ¿ÖĞ 
 				sp = sp - 1;
 				datastk[findbase(bp, index.l) + index.a] = datastk[sp + 1]; 
-				printf("%10d\n", datastk[sp + 1]);
+				cout<<datastk[sp + 1]<<"\n";
 				break;
 
 			case cal:  //µ÷ÓÃ¹ı³Ì ?
@@ -1242,10 +1261,14 @@ void interpret()
 				}
 				break;
 
-			case red:
+			case red: //ÊäÈë
+				cout << "ÇëÊäÈë±äÁ¿µÄÖµ£º"; //ÈçºÎÏÔÊ¾±äÁ¿Ãû£¿
+				cin >> temp;
+				datastk[findbase(bp, index.l) + index.a] = temp;
 				break;
 
-			case wrt:
+			case wrt: //Êä³ö
+				cout << datastk[sp] << " ";
 				break;
 		}
 	}

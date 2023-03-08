@@ -137,6 +137,7 @@ enum symtype
 {
 	con, var, pro, cav;//cav = con and var
 };
+//常量永远不变 不可输入，变量仅在运行时才赋值，编译符号表阶段不管
 
 struct t//静态表，无哈希
 {
