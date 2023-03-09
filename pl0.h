@@ -98,7 +98,8 @@ char* err_msg[] =
 /* 44 */ "Unexpected constant description follows variable description.",
 /* 45 */ "Unexpected constant description or variable description.",
 /* 46 */ "Duplicate definition.",
-/* 47 */ "There are too many symbols."
+/* 47 */ "There are too many symbols.",
+/* 48 */ "Incorrect number of parameters"
 };
 
 
@@ -145,7 +146,7 @@ struct t//静态表，无哈希
 {
 	symtype kind;
 	char name[al+1];
-	long val;
+	long val; //pro 用于传过程CAL后转向的传参STO代码地址
 	long level;
 	long addr;
 	long size;
@@ -156,9 +157,10 @@ t table[txmax + 1];
 
 long display[dxmax + 1];//显示层次关系表
 long tx = 0;//符号表栈顶寄存器(但不一定是最新)
-long sx;//符号表基地址寄存器 用于恢复
+long sx;//同层最初符号表基地址寄存器 用于恢复
 long dx;//层次表栈顶寄存器
 long lastx = 0;//previous
+long llastx = 0;//previous of previous
 
 
 
@@ -168,14 +170,13 @@ char id[al+1]; // 词法分析器输出结果之用，存放最近一次识别出来的标识符的名字
 long num; // 词法分析器输出结果之用，存放最近一次识别出来的数字的值
 long cc; // 行缓冲区的列指针
 long ll; // 行缓冲区长度
-long kk; /* 引入此变量是出于程序性能考虑，见 getsym 过程注释 */ 
 long err; /* 出错总次数 */
-long cx; // 代码分配指针，代码生成模块总在 cx 所指位置生成新的代码
 long row;//出错指示行数
 long column;//出错指示列数
 long l;//目前词法分析中的词长度
 long lev;//当前层深
-long rowtemp,coltemp,rowlast,collast;//用于暂时存储上一个词语位置变量用于报错 
+long rowtemp,coltemp,rowlast,collast;//用于暂时存储上一个词语位置变量用于报错
+long ddx;//用于计算当前变量运行栈中相对于过程基地址的偏移量
 
 
 char line[81]; /* 行缓冲区，用于从文件读出一行，供词法分析获取单词时之用 */
@@ -198,15 +199,15 @@ FILE* infile;
 
 
 /*假想机结构*/
-#define cxmax 2000 /* 目标代码数组的长度 */
+#define pcmax 2000 /* 目标代码数组的长度 */
 #define stacksize 5000
-command code[cxmax + 1];
+command code[pcmax + 1];
 long datastk[stacksize];
 
 command index;//指令寄存器
-long sp;//栈顶寄存器（书中top）
-long bp;//基地址寄存器(书中sp)
-long pc;//程序地址寄存器
+long sp;//栈顶寄存器（书中top）从0开始，指向已有的栈顶
+long bp;//基地址寄存器(书中sp) 从0开始
+long pc;//程序地址寄存器 从0开始，指向下一条没填的程序
 
 
 #endif 
