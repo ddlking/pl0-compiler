@@ -652,7 +652,8 @@ void proc(unsigned long long fsys)//procedure识别在block
 	while(sym&(semicolon|procsym))
 	{
 		if (sym == procsym)
-			error(10);
+			;
+			//error(10);
 		else
 			getsym();
 		
@@ -1386,7 +1387,7 @@ void interpret()
 	do
 	{
 		index = code[pc];
-		cout << codename[index.f] << " " << index.l << " " << index.a<<"\n";
+		//cout << codename[index.f] << " " << index.l << " " << index.a<<"\n";
 		pc++;
 		switch (index.f) //sp指向已填的栈顶，而非下一个
 		{
@@ -1399,9 +1400,9 @@ void interpret()
 				switch (index.a)
 				{
 					case 0: // return 
-						sp = bp;
+						sp = bp - 1;//指向已有
 						pc = datastk[bp + 1];
-						bp = datastk[bp + 2];
+						bp = datastk[bp];//动态链
 						break;
 
 					case 1:  // 取反  
@@ -1483,7 +1484,7 @@ void interpret()
 			case cal:  //调用过程 sp不变 用于sto找对应实参或表达式值
 				datastk[sp + 1] = bp; //动态链
 				datastk[sp + 2] = pc;//返回地址
-				//datastk[sp + 3] = findbase(bp, index.l); //静态链 因为此处l是调用的过程的层差
+				datastk[sp + 3] = findbase(bp, index.l); //静态链 因为此处l是调用的过程的层差
 				bp = sp + 1;
 				pc = index.a;
 				break;
@@ -1497,7 +1498,7 @@ void interpret()
 				pc = index.a;
 				break;
 
-			case jpc:  //条件跳转（为假跳转）并弹出栈顶
+			case jpc:  //条件跳转（为假跳转）并弹出栈顶 sp--
 				sp = sp - 1;
 				if (datastk[sp + 1] == 0)
 				{
